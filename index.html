@@ -1,0 +1,2613 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>貓貓日記</title>
+  
+  <!-- PWA / Mobile Home Screen Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="貓貓日記" />
+  <meta name="application-name" content="貓貓日記" />
+  <meta name="theme-color" content="#fffbeb" />
+
+  <!-- Default SVG Favicon & Apple Touch Icon (Upgraded to 512x512 PNG via script below for iOS/Android) -->
+  <link id="favicon-link" rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2224%22 fill=%22%23f59e0b%22/><text x=%2250%22 y=%2272%22 font-size=%2264%22 text-anchor=%22middle%22>🐱</text></svg>" />
+  <link id="apple-touch-icon-link" rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2224%22 fill=%22%23f59e0b%22/><text x=%2250%22 y=%2272%22 font-size=%2264%22 text-anchor=%22middle%22>🐱</text></svg>" />
+
+  <!-- Auto-Generate High-Res 512x512 PNG Cat App Icon & PWA Manifest for iOS/Android Home Screen -->
+  <script>
+    (function () {
+      try {
+        var canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        var ctx = canvas.getContext('2d');
+
+        // Warm amber-orange rounded background
+        var grad = ctx.createLinearGradient(0, 0, 512, 512);
+        grad.addColorStop(0, '#fbbf24');
+        grad.addColorStop(1, '#ea580c');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 512, 512, 115);
+        ctx.fill();
+
+        // Soft inner cream circle
+        ctx.fillStyle = '#fffbeb';
+        ctx.beginPath();
+        ctx.arc(256, 256, 200, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cute Cat Face Emoji centered
+        ctx.font = '260px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🐱', 256, 272);
+
+        var pngDataUrl = canvas.toDataURL('image/png');
+
+        var appleLink = document.getElementById('apple-touch-icon-link');
+        if (appleLink) appleLink.href = pngDataUrl;
+
+        var favLink = document.getElementById('favicon-link');
+        if (favLink) favLink.href = pngDataUrl;
+
+        // Inject dynamic Web App Manifest so Android Chrome installs it as "貓貓日記"
+        var manifest = {
+          name: '貓貓日記',
+          short_name: '貓貓日記',
+          description: '兩隻貓貓嘅全方位生活與健康記錄',
+          start_url: './',
+          display: 'standalone',
+          background_color: '#fffbeb',
+          theme_color: '#fffbeb',
+          icons: [
+            { src: pngDataUrl, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+          ]
+        };
+        var manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+        var manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = URL.createObjectURL(manifestBlob);
+        document.head.appendChild(manifestLink);
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React & ReactDOM CDN (Production) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel Standalone (Compiles JSX directly in the browser) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #fffbeb;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-amber-50/40 text-stone-800">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- 儲存鍵值 (LocalStorage Keys) ---
+    const STORAGE_KEYS = {
+      CATS: 'cat_diary_v4_cats',
+      LOGS: 'cat_diary_v4_logs',
+      CANS: 'cat_diary_v4_cans',
+      WEIGHTS: 'cat_diary_v4_weights'
+    };
+
+    const getTodayStr = () => {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const getNowTimeStr = () => {
+      const d = new Date();
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+
+    const daysAgoStr = (days) => {
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const calcDaysBetween = (dateStr) => {
+      if (!dateStr) return null;
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return null;
+      const target = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diff = Math.floor((today - target) / (1000 * 60 * 60 * 24));
+      return diff >= 0 ? diff : 0;
+    };
+
+    // --- 自動計算貓貓年齡 (精確至歲及月) ---
+    const calcCatAge = (birthdayStr) => {
+      if (!birthdayStr) return '未設定生日';
+      const parts = birthdayStr.split('-');
+      if (parts.length !== 3) return '未設定生日';
+      const birth = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      if (isNaN(birth.getTime())) return '未設定生日';
+
+      const now = new Date();
+      let years = now.getFullYear() - birth.getFullYear();
+      let months = now.getMonth() - birth.getMonth();
+      const days = now.getDate() - birth.getDate();
+
+      if (days < 0) {
+        months -= 1;
+      }
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
+
+      if (years < 0) return '即將出生';
+      if (years === 0 && months === 0) {
+        const diffDays = Math.max(1, Math.floor((now - birth) / (1000 * 60 * 60 * 24)));
+        return `${diffDays}日大`;
+      }
+      if (years === 0) return `${months}個月大`;
+      if (months === 0) return `${years}歲`;
+      return `${years}歲${months}個月`;
+    };
+
+    const GENDER_MAP = {
+      male: { label: '♂️ 男仔', badge: 'bg-sky-100 text-sky-800 border-sky-200', short: '♂️' },
+      female: { label: '♀️ 女仔', badge: 'bg-rose-100 text-rose-800 border-rose-200', short: '♀️' }
+    };
+
+    const COLOR_THEMES = {
+      slate: {
+        name: '霧灰藍',
+        bgSoft: 'bg-slate-100',
+        bgCard: 'bg-gradient-to-br from-slate-100 to-slate-200/80',
+        textMain: 'text-slate-800',
+        textSub: 'text-slate-600',
+        border: 'border-slate-300',
+        ring: 'ring-slate-400',
+        badge: 'bg-slate-700 text-white',
+        hex: '#475569'
+      },
+      amber: {
+        name: '暖橘金',
+        bgSoft: 'bg-amber-100',
+        bgCard: 'bg-gradient-to-br from-amber-100 to-orange-100/90',
+        textMain: 'text-amber-900',
+        textSub: 'text-amber-700',
+        border: 'border-amber-300',
+        ring: 'ring-amber-400',
+        badge: 'bg-amber-600 text-white',
+        hex: '#d97706'
+      },
+      rose: {
+        name: '櫻花粉',
+        bgSoft: 'bg-rose-100',
+        bgCard: 'bg-gradient-to-br from-rose-100 to-pink-100/90',
+        textMain: 'text-rose-900',
+        textSub: 'text-rose-700',
+        border: 'border-rose-300',
+        ring: 'ring-rose-400',
+        badge: 'bg-rose-600 text-white',
+        hex: '#e11d48'
+      },
+      emerald: {
+        name: '薄荷綠',
+        bgSoft: 'bg-emerald-100',
+        bgCard: 'bg-gradient-to-br from-emerald-100 to-teal-100/90',
+        textMain: 'text-emerald-900',
+        textSub: 'text-emerald-700',
+        border: 'border-emerald-300',
+        ring: 'ring-emerald-400',
+        badge: 'bg-emerald-600 text-white',
+        hex: '#059669'
+      }
+    };
+
+    const INITIAL_CATS = {
+      cat1: {
+        id: 'cat1',
+        name: '灰色貓貓',
+        avatar: '🐱',
+        color: 'slate',
+        gender: 'male',
+        birthday: '2023-05-10',
+        note: '鍾意食肉泥，康復中要多加留意'
+      },
+      cat2: {
+        id: 'cat2',
+        name: '二號主子',
+        avatar: '🐈',
+        color: 'amber',
+        gender: 'male',
+        birthday: '2024-02-14',
+        note: '活潑貪食，剪指甲要快手'
+      }
+    };
+
+    const INITIAL_LOGS = [
+      {
+        id: 'log-1',
+        catId: 'cat1',
+        category: 'injury',
+        subType: '傷口清潔與護理',
+        title: '後腳傷口消毒 & 戴頭套',
+        date: getTodayStr(),
+        time: '09:30',
+        injuryArea: '左後腳外側',
+        injuryStatus: 'recovering',
+        note: '用生理鹽水抹乾淨，結焦情況良好，獎勵咗一條肉泥加少少牛初乳粉。'
+      },
+      {
+        id: 'log-2',
+        catId: 'both',
+        category: 'litter',
+        subType: '洗貓砂盆',
+        title: '成個貓砂盆大清洗 + 換新豆腐砂',
+        date: daysAgoStr(4),
+        time: '15:00',
+        note: '兩個砂盆都用寵物消毒水浸洗曬乾，換咗全新綠茶豆腐砂。'
+      },
+      {
+        id: 'log-3',
+        catId: 'cat1',
+        category: 'meds',
+        subType: '保健品 (牛初乳/益生菌)',
+        title: '食牛初乳粉 + 羊奶',
+        date: daysAgoStr(1),
+        time: '20:00',
+        note: '溝落溫羊奶度一滴不剩飲晒，幫手加快傷口復原。'
+      },
+      {
+        id: 'log-4',
+        catId: 'cat1',
+        category: 'grooming',
+        subType: '剪指甲',
+        title: '剪前後腳指甲',
+        date: daysAgoStr(6),
+        time: '21:15',
+        note: '一邊餵肉泥一邊剪，好合作冇掙扎。'
+      },
+      {
+        id: 'log-5',
+        catId: 'cat2',
+        category: 'grooming',
+        subType: '剪指甲',
+        title: '剪手腳指甲',
+        date: daysAgoStr(10),
+        time: '21:30',
+        note: '剪咗前腳先，後腳扭計分兩次剪完。'
+      },
+      {
+        id: 'log-6',
+        catId: 'cat1',
+        category: 'grooming',
+        subType: '洗耳仔',
+        title: '滴洗耳水抹耳仔',
+        date: daysAgoStr(8),
+        time: '19:00',
+        note: '右耳有少少耳垢，抹完好乾淨。'
+      },
+      {
+        id: 'log-7',
+        catId: 'cat2',
+        category: 'grooming',
+        subType: '剃腳毛',
+        title: '剃腳底毛防滑',
+        date: daysAgoStr(16),
+        time: '16:20',
+        note: '腳枕啲毛長到遮住肉球，剃完跑全屋唔怕跣腳。'
+      },
+      {
+        id: 'log-8',
+        catId: 'both',
+        category: 'meds',
+        subType: '外寄生蟲 (Revolution)',
+        title: '每月定期滴 Revolution 大寵愛',
+        date: daysAgoStr(18),
+        time: '22:00',
+        note: '兩隻都滴咗頸背，預防心絲蟲、耳疥蟲同跳蚤。'
+      }
+    ];
+
+    const INITIAL_CANS = [
+      {
+        id: 'can-1',
+        brand: 'K9 Natural',
+        flavor: '雞肉+羊心主食罐',
+        texture: '肉醬 (Pâté)',
+        cat1Rating: 'love',
+        cat2Rating: 'good',
+        note: '加少少暖水壓爛超香，灰色貓貓秒清碟！'
+      },
+      {
+        id: 'can-2',
+        brand: '汪喵星球',
+        flavor: '98% 鮮雞肉營養主食罐',
+        texture: '慕斯 (Mousse)',
+        cat1Rating: 'good',
+        cat2Rating: 'love',
+        note: '質地好滑，溝牛初乳或者偷藏藥粉都好易入口。'
+      },
+      {
+        id: 'can-3',
+        brand: 'ZiwiPeak 巔峰',
+        flavor: '紐西蘭鹿肉主食罐',
+        texture: '肉醬 (Pâté)',
+        cat1Rating: 'meh',
+        cat2Rating: 'good',
+        note: '營養高但肉質偏實，要溝啲肉泥先肯食晒。'
+      },
+      {
+        id: 'can-4',
+        brand: '怪獸部落',
+        flavor: '1種肉 鮮雞肉主食罐',
+        texture: '肉醬 (Pâté)',
+        cat1Rating: 'hate',
+        cat2Rating: 'meh',
+        note: '聞一聞就掉頭走，以後唔使再買呢隻味。'
+      }
+    ];
+
+    const INITIAL_WEIGHTS = [
+      { id: 'w-1', catId: 'cat1', date: daysAgoStr(60), weight: 4.10, bcs: 'normal', method: 'scale', note: '定期檢查' },
+      { id: 'w-2', catId: 'cat1', date: daysAgoStr(30), weight: 4.18, bcs: 'normal', method: 'hold', note: '食慾唔錯' },
+      { id: 'w-3', catId: 'cat1', date: daysAgoStr(14), weight: 4.12, bcs: 'normal', method: 'hold', note: '整親腳頭幾日食少咗少少' },
+      { id: 'w-4', catId: 'cat1', date: getTodayStr(), weight: 4.25, bcs: 'normal', method: 'hold', note: '補咗羊奶同肉泥，體重升返晒！' },
+      { id: 'w-5', catId: 'cat2', date: daysAgoStr(60), weight: 3.65, bcs: 'normal', method: 'scale', note: '發育期' },
+      { id: 'w-6', catId: 'cat2', date: daysAgoStr(30), weight: 3.80, bcs: 'normal', method: 'hold', note: '大隻咗' },
+      { id: 'w-7', catId: 'cat2', date: getTodayStr(), weight: 3.92, bcs: 'normal', method: 'hold', note: '差少少就到 4kg 喇' }
+    ];
+
+    const RATING_MAP = {
+      love: { label: '😍 搶住食', bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', score: 4 },
+      good: { label: '😋 肯食', bg: 'bg-sky-100 text-sky-800 border-sky-300', score: 3 },
+      meh:  { label: '😐 麻麻地', bg: 'bg-amber-100 text-amber-800 border-amber-300', score: 2 },
+      hate: { label: '🙅 聞完就走', bg: 'bg-rose-100 text-rose-800 border-rose-300', score: 1 }
+    };
+
+    const CATEGORY_CONFIG = {
+      food: {
+        label: '飲食/零食',
+        icon: '🍗',
+        badgeClass: 'bg-orange-100 text-orange-800 border-orange-200',
+        subTypes: ['主食罐', '肉泥獎勵', '羊奶/補水', '乾糧', '鮮食/凍乾']
+      },
+      meds: {
+        label: '食藥/保健/杜蟲',
+        icon: '💊',
+        badgeClass: 'bg-purple-100 text-purple-800 border-purple-200',
+        subTypes: ['外寄生蟲 (Revolution)', '內寄生蟲 (Milbemax)', '保健品 (牛初乳/益生菌)', '獸醫處方藥', '洗眼/滴眼水']
+      },
+      injury: {
+        label: '受傷/傷口護理',
+        icon: '🩹',
+        badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
+        subTypes: ['傷口清潔與護理', '外傷/擦損發現', '皮膚/貓癬跟進', '戴/除伊莉莎白頭套', '獸醫覆診']
+      },
+      grooming: {
+        label: '美容護理',
+        icon: '✂️',
+        badgeClass: 'bg-sky-100 text-sky-800 border-sky-200',
+        subTypes: ['剪指甲', '洗耳仔', '剃腳毛', '梳毛', '刷牙', '抹身/沖涼']
+      },
+      litter: {
+        label: '貓砂盆衛生',
+        icon: '🚽',
+        badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        subTypes: ['洗貓砂盆', '換全新貓砂', '添補貓砂', '日常鏟屎觀察']
+      }
+    };
+
+    function loadStorage(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw);
+        if (key === STORAGE_KEYS.CATS && parsed) {
+          return {
+            cat1: { ...INITIAL_CATS.cat1, ...parsed.cat1, gender: parsed.cat1?.gender || 'male', birthday: parsed.cat1?.birthday || '2023-05-10' },
+            cat2: { ...INITIAL_CATS.cat2, ...parsed.cat2, gender: parsed.cat2?.gender || 'male', birthday: parsed.cat2?.birthday || '2024-02-14' }
+          };
+        }
+        return parsed;
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    function App() {
+      const [cats, setCats] = useState(() => loadStorage(STORAGE_KEYS.CATS, INITIAL_CATS));
+      const [logs, setLogs] = useState(() => loadStorage(STORAGE_KEYS.LOGS, INITIAL_LOGS));
+      const [cans, setCans] = useState(() => loadStorage(STORAGE_KEYS.CANS, INITIAL_CANS));
+      const [weights, setWeights] = useState(() => loadStorage(STORAGE_KEYS.WEIGHTS, INITIAL_WEIGHTS));
+
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [selectedCatFilter, setSelectedCatFilter] = useState('all');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [toastMsg, setToastMsg] = useState(null);
+
+      const [editingCatId, setEditingCatId] = useState(null);
+      const [editCatForm, setEditCatForm] = useState({
+        name: '',
+        avatar: '🐱',
+        color: 'slate',
+        gender: 'male',
+        birthday: '',
+        note: ''
+      });
+
+      const [showBackupModal, setShowBackupModal] = useState(false);
+      const [backupTab, setBackupTab] = useState('export');
+      const [importJsonText, setImportJsonText] = useState('');
+      const [importPreview, setImportPreview] = useState(null);
+      const [importError, setImportError] = useState('');
+      const [confirmResetStep, setConfirmResetStep] = useState(false);
+      const fileInputRef = useRef(null);
+
+      useEffect(() => {
+        try { localStorage.setItem(STORAGE_KEYS.CATS, JSON.stringify(cats)); } catch (e) {}
+      }, [cats]);
+
+      useEffect(() => {
+        try { localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs)); } catch (e) {}
+      }, [logs]);
+
+      useEffect(() => {
+        try { localStorage.setItem(STORAGE_KEYS.CANS, JSON.stringify(cans)); } catch (e) {}
+      }, [cans]);
+
+      useEffect(() => {
+        try { localStorage.setItem(STORAGE_KEYS.WEIGHTS, JSON.stringify(weights)); } catch (e) {}
+      }, [weights]);
+
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(null), 2800);
+      };
+
+      const quickCheckIn = (catId, category, subType, defaultTitle) => {
+        const newLog = {
+          id: 'log-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+          catId,
+          category,
+          subType,
+          title: defaultTitle,
+          date: getTodayStr(),
+          time: getNowTimeStr(),
+          note: '於護理看板一鍵打卡 ✓'
+        };
+        setLogs(prev => [newLog, ...prev]);
+        const targetName = catId === 'both' ? '兩隻貓貓' : cats[catId]?.name;
+        showToast(`✅ 已記錄：${targetName} - ${subType}`);
+      };
+
+      const markInjuryHealed = (logId) => {
+        setLogs(prev => prev.map(item => item.id === logId ? { ...item, injuryStatus: 'healed' } : item));
+        showToast('🎉 太好喇！已標記傷口完全康復！');
+      };
+
+      const deleteLog = (logId) => {
+        setLogs(prev => prev.filter(item => item.id !== logId));
+        showToast('🗑️ 已刪除該筆記錄');
+      };
+
+      const openEditCat = (catId, e) => {
+        if (e) e.stopPropagation();
+        const c = cats[catId];
+        setEditCatForm({
+          name: c.name,
+          avatar: c.avatar,
+          color: c.color || 'slate',
+          gender: c.gender || 'male',
+          birthday: c.birthday || '',
+          note: c.note || ''
+        });
+        setEditingCatId(catId);
+      };
+
+      const saveEditCat = (e) => {
+        e.preventDefault();
+        if (!editCatForm.name.trim()) return;
+        setCats(prev => ({
+          ...prev,
+          [editingCatId]: {
+            ...prev[editingCatId],
+            name: editCatForm.name.trim(),
+            avatar: editCatForm.avatar,
+            color: editCatForm.color,
+            gender: editCatForm.gender,
+            birthday: editCatForm.birthday,
+            note: editCatForm.note.trim()
+          }
+        }));
+        setEditingCatId(null);
+        showToast('🐱 已更新主子檔案（名字、性別、出生日期與年齡）！');
+      };
+
+      const createBackupPayload = () => {
+        return {
+          app: 'CatDiary',
+          appName: '貓貓日記',
+          version: 5,
+          exportedAt: new Date().toISOString(),
+          exportDate: getTodayStr(),
+          data: { cats, logs, cans, weights }
+        };
+      };
+
+      const handleDownloadBackup = () => {
+        try {
+          const payload = createBackupPayload();
+          const jsonStr = JSON.stringify(payload, null, 2);
+          const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `貓貓日記_備份_${getTodayStr()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast('📥 備份檔已下載到你部機！');
+        } catch (err) {
+          showToast('⚠️ 下載失敗，請使用下方「複製備份文字」功能');
+        }
+      };
+
+      const handleCopyBackupText = () => {
+        try {
+          const payload = createBackupPayload();
+          const jsonStr = JSON.stringify(payload);
+          navigator.clipboard.writeText(jsonStr);
+          showToast('📋 已複製備份文字！可以貼去 Notes 或自己 WhatsApp 留底');
+        } catch (err) {
+          showToast('⚠️ 複製失敗，請手動複製');
+        }
+      };
+
+      const validateAndPreviewImport = (rawText) => {
+        setImportError('');
+        setImportPreview(null);
+        if (!rawText || !rawText.trim()) return;
+        try {
+          const parsed = JSON.parse(rawText);
+          const d = parsed.data ? parsed.data : parsed;
+          if (!d.cats || !Array.isArray(d.logs) || !Array.isArray(d.cans) || !Array.isArray(d.weights)) {
+            setImportError('檔案格式唔啱：缺少必要嘅貓貓資料欄位，請確認係咪由本 App 匯出嘅備份檔。');
+            return;
+          }
+          setImportPreview({
+            exportedAt: parsed.exportDate || '未知日期',
+            catNames: `${d.cats.cat1?.name || '貓1'} & ${d.cats.cat2?.name || '貓2'}`,
+            logsCount: d.logs.length,
+            cansCount: d.cans.length,
+            weightsCount: d.weights.length,
+            payloadData: d
+          });
+        } catch (err) {
+          setImportError('無法解析 JSON 內容，請確認檔案冇損壞或文字已經完整貼上。');
+        }
+      };
+
+      const handleFileUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const content = event.target?.result;
+          if (typeof content === 'string') {
+            setImportJsonText(content);
+            validateAndPreviewImport(content);
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      const confirmRestoreBackup = () => {
+        if (!importPreview || !importPreview.payloadData) return;
+        const { cats: newCats, logs: newLogs, cans: newCans, weights: newWeights } = importPreview.payloadData;
+        setCats(newCats);
+        setLogs(newLogs);
+        setCans(newCans);
+        setWeights(newWeights);
+        setShowBackupModal(false);
+        setImportPreview(null);
+        setImportJsonText('');
+        showToast('🎉 成功還原所有備份資料！');
+      };
+
+      const handleClearAllRecords = () => {
+        setLogs([]);
+        setCans([]);
+        setWeights([]);
+        setConfirmResetStep(false);
+        setShowBackupModal(false);
+        showToast('✨ 已清空所有示範記錄，可以由零開始記錄喇！');
+      };
+
+      const handleRestoreDemoData = () => {
+        setCats(INITIAL_CATS);
+        setLogs(INITIAL_LOGS);
+        setCans(INITIAL_CANS);
+        setWeights(INITIAL_WEIGHTS);
+        setShowBackupModal(false);
+        showToast('🐱 已重新載入預設示範資料');
+      };
+
+      return (
+        <div className="min-h-screen bg-amber-50/40 text-stone-800 pb-24 select-none font-sans">
+          {toastMsg && (
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-stone-900/95 text-white px-4 py-2.5 rounded-full shadow-xl text-sm font-medium flex items-center gap-2 animate-bounce">
+              <span>{toastMsg}</span>
+            </div>
+          )}
+
+          <header className="bg-white border-b border-amber-100 sticky top-0 z-30 shadow-sm">
+            <div className="max-w-xl mx-auto px-4 pt-3 pb-3">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-xl shadow-sm">
+                    🐱
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-extrabold text-stone-800 tracking-tight leading-tight">貓貓日記</h1>
+                    <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                      自動儲存中 · 受傷 · 食藥 · 罐罐 · 體重
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      setBackupTab('export');
+                      setImportPreview(null);
+                      setImportError('');
+                      setConfirmResetStep(false);
+                      setShowBackupModal(true);
+                    }}
+                    className="bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 text-xs font-bold px-3 py-1.5 rounded-full border border-stone-200 transition flex items-center gap-1 shadow-sm"
+                  >
+                    <span>⚙️</span>
+                    <span>備份/管理</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('add')}
+                    className="bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm transition flex items-center gap-1"
+                  >
+                    <span>＋</span>
+                    <span>記一筆</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setSelectedCatFilter('all')}
+                  className={`py-2 px-2.5 rounded-xl border text-left transition flex items-center justify-between ${
+                    selectedCatFilter === 'all'
+                      ? 'bg-stone-800 text-white border-stone-800 shadow-sm'
+                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-base">🏠</span>
+                    <div className="truncate">
+                      <div className="text-xs font-bold leading-tight truncate">全部 / 兩隻</div>
+                      <div className={`text-[10px] ${selectedCatFilter === 'all' ? 'text-stone-300' : 'text-stone-400'}`}>
+                        總覽與共用
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {['cat1', 'cat2'].map(catId => {
+                  const cat = cats[catId];
+                  const theme = COLOR_THEMES[cat.color] || COLOR_THEMES.slate;
+                  const genderObj = GENDER_MAP[cat.gender || 'male'];
+                  const ageText = calcCatAge(cat.birthday);
+                  const isSelected = selectedCatFilter === catId;
+
+                  return (
+                    <div
+                      key={catId}
+                      onClick={() => setSelectedCatFilter(catId)}
+                      className={`py-2 px-2.5 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${
+                        isSelected
+                          ? `${theme.bgCard} ${theme.border} ring-2 ${theme.ring} shadow-sm`
+                          : 'bg-white border-stone-200 hover:bg-stone-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-lg shrink-0">{cat.avatar}</span>
+                        <div className="truncate">
+                          <div className={`text-xs font-bold leading-tight truncate flex items-center gap-1 ${theme.textMain}`}>
+                            <span className="truncate">{cat.name}</span>
+                            <span className="text-[10px] text-sky-600 shrink-0">{genderObj.short}</span>
+                          </div>
+                          <div className="text-[10px] text-stone-500 truncate">
+                            {ageText}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => openEditCat(catId, e)}
+                        title="修改主子資料 (生日/性別/名稱)"
+                        className="p-1 rounded-lg hover:bg-black/10 text-stone-500 shrink-0 text-xs"
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-2.5 relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs">🔍</span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="搜尋紀錄、罐罐牌子或關鍵字 (例如：牛初乳、K9、剪指甲)..."
+                  className="w-full pl-8 pr-8 py-1.5 bg-stone-100/90 border border-stone-200/80 rounded-xl text-xs text-stone-700 placeholder-stone-400 focus:outline-none focus:bg-white focus:border-amber-400 transition"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-xl mx-auto px-4 pt-4">
+            {activeTab === 'dashboard' && (
+              <DashboardView
+                cats={cats}
+                logs={logs}
+                weights={weights}
+                selectedCatFilter={selectedCatFilter}
+                searchQuery={searchQuery}
+                onQuickCheckIn={quickCheckIn}
+                onMarkHealed={markInjuryHealed}
+                onGoToTab={setActiveTab}
+                onEditCat={openEditCat}
+              />
+            )}
+
+            {activeTab === 'weights' && (
+              <WeightsView
+                cats={cats}
+                weights={weights}
+                setWeights={setWeights}
+                selectedCatFilter={selectedCatFilter}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === 'cans' && (
+              <CansView
+                cats={cats}
+                cans={cans}
+                setCans={setCans}
+                selectedCatFilter={selectedCatFilter}
+                searchQuery={searchQuery}
+                showToast={showToast}
+              />
+            )}
+
+            {activeTab === 'timeline' && (
+              <TimelineView
+                cats={cats}
+                logs={logs}
+                selectedCatFilter={selectedCatFilter}
+                searchQuery={searchQuery}
+                onDeleteLog={deleteLog}
+                onMarkHealed={markInjuryHealed}
+                onGoToAdd={() => setActiveTab('add')}
+              />
+            )}
+
+            {activeTab === 'add' && (
+              <AddLogView
+                cats={cats}
+                selectedCatFilter={selectedCatFilter}
+                onAddLog={(newLog) => {
+                  setLogs(prev => [newLog, ...prev]);
+                  showToast('✅ 已成功儲存記錄！');
+                  setActiveTab('dashboard');
+                }}
+              />
+            )}
+          </main>
+
+          <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-stone-200 z-40">
+            <div className="max-w-xl mx-auto grid grid-cols-5 px-1 py-1.5">
+              {[
+                { id: 'dashboard', icon: '📋', label: '護理看板' },
+                { id: 'weights', icon: '⚖️', label: '體重趨勢' },
+                { id: 'add', icon: '➕', label: '新增記錄', highlight: true },
+                { id: 'cans', icon: '🥫', label: '罐罐圖鑑' },
+                { id: 'timeline', icon: '🕒', label: '歷史紀錄' }
+              ].map(tab => {
+                const isActive = activeTab === tab.id;
+                if (tab.highlight) {
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className="flex flex-col items-center justify-center -mt-3"
+                    >
+                      <div className={`w-11 h-11 rounded-full flex items-center justify-center text-lg shadow-md transition ${
+                        isActive ? 'bg-amber-600 text-white scale-105' : 'bg-amber-500 text-white hover:bg-amber-600'
+                      }`}>
+                        {tab.icon}
+                      </div>
+                      <span className={`text-[10px] mt-0.5 font-bold ${isActive ? 'text-amber-700' : 'text-stone-500'}`}>
+                        {tab.label}
+                      </span>
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex flex-col items-center justify-center py-1 rounded-xl transition ${
+                      isActive ? 'text-amber-600 font-bold bg-amber-50/80' : 'text-stone-500 hover:text-stone-800'
+                    }`}
+                  >
+                    <span className="text-lg leading-none">{tab.icon}</span>
+                    <span className="text-[11px] mt-1">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+
+          {/* 修改主子檔案 Modal (包含名字、性別、出生日期、自動年齡預覽) */}
+          {editingCatId && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl my-8">
+                <h3 className="text-base font-bold text-stone-800 mb-3 flex items-center gap-2">
+                  <span>✏️</span> 修改主子基本資料
+                </h3>
+                <form onSubmit={saveEditCat} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-600 mb-1">貓貓名字</label>
+                    <input
+                      type="text"
+                      value={editCatForm.name}
+                      onChange={e => setEditCatForm({ ...editCatForm, name: e.target.value })}
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      placeholder="例如：灰色貓貓 / 細佬"
+                      required
+                    />
+                  </div>
+
+                  {/* 性別與出生日期 */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-bold text-stone-600 mb-1">性別</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { key: 'male', label: '♂️ 男仔' },
+                          { key: 'female', label: '♀️ 女仔' }
+                        ].map(g => (
+                          <button
+                            type="button"
+                            key={g.key}
+                            onClick={() => setEditCatForm({ ...editCatForm, gender: g.key })}
+                            className={`py-2 px-2 rounded-xl border text-xs font-bold transition ${
+                              editCatForm.gender === g.key
+                                ? g.key === 'male'
+                                  ? 'bg-sky-100 border-sky-400 text-sky-900 ring-2 ring-sky-300'
+                                  : 'bg-rose-100 border-rose-400 text-rose-900 ring-2 ring-rose-300'
+                                : 'bg-stone-50 border-stone-200 text-stone-600'
+                            }`}
+                          >
+                            {g.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-600 mb-1">
+                        出生日期 <span className="text-amber-700 font-extrabold">({calcCatAge(editCatForm.birthday)})</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={editCatForm.birthday}
+                        onChange={e => setEditCatForm({ ...editCatForm, birthday: e.target.value })}
+                        className="w-full border border-stone-300 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-600 mb-1">選擇頭像圖示</label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {['🐱', '🐈', '🐈‍⬛', '😸', '😻', '🐾', '👑', '🦁'].map(emoji => (
+                        <button
+                          type="button"
+                          key={emoji}
+                          onClick={() => setEditCatForm({ ...editCatForm, avatar: emoji })}
+                          className={`text-xl p-2 rounded-xl border ${
+                            editCatForm.avatar === emoji ? 'bg-amber-100 border-amber-400 scale-105' : 'border-stone-200'
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-600 mb-1">代表顏色主題</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {Object.entries(COLOR_THEMES).map(([colorKey, themeObj]) => (
+                        <button
+                          type="button"
+                          key={colorKey}
+                          onClick={() => setEditCatForm({ ...editCatForm, color: colorKey })}
+                          className={`py-1.5 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 ${
+                            editCatForm.color === colorKey
+                              ? `${themeObj.bgSoft} ${themeObj.border} ${themeObj.textMain} ring-2 ${themeObj.ring}`
+                              : 'border-stone-200 text-stone-600'
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: themeObj.hex }}></span>
+                          <span>{themeObj.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-600 mb-1">備註 / 性格小貼士</label>
+                    <input
+                      type="text"
+                      value={editCatForm.note}
+                      onChange={e => setEditCatForm({ ...editCatForm, note: e.target.value })}
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      placeholder="例如：鍾意食雞肉味、驚吹風機"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingCatId(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 bg-stone-100 hover:bg-stone-200"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-500 hover:bg-amber-600"
+                    >
+                      儲存修改
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {showBackupModal && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-stone-200 my-8">
+                <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">💾</span>
+                    <div>
+                      <h3 className="text-base font-extrabold text-stone-800">貓貓日記 · 資料備份中心</h3>
+                      <p className="text-[11px] text-stone-500">隨時匯出備份檔，換手機或跨電腦都唔怕唔見資料</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowBackupModal(false)}
+                    className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500 text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5 bg-stone-100 p-1 rounded-xl my-3">
+                  {[
+                    { id: 'export', label: '📥 匯出備份' },
+                    { id: 'import', label: '📤 匯入還原' },
+                    { id: 'reset', label: '🗑️ 清空/重設' }
+                  ].map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setBackupTab(t.id);
+                        setImportError('');
+                        setConfirmResetStep(false);
+                      }}
+                      className={`py-1.5 rounded-lg text-xs font-bold transition ${
+                        backupTab === t.id ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                {backupTab === 'export' && (
+                  <div className="space-y-3">
+                    <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-3">
+                      <div className="text-xs font-bold text-amber-900 mb-1">📊 目前本機儲存統計</div>
+                      <div className="grid grid-cols-3 gap-2 text-center mt-2">
+                        <div className="bg-white rounded-lg p-2 border border-amber-100">
+                          <div className="text-base font-black text-stone-800">{logs.length}</div>
+                          <div className="text-[10px] text-stone-500">生活與護理紀錄</div>
+                        </div>
+                        <div className="bg-white rounded-lg p-2 border border-amber-100">
+                          <div className="text-base font-black text-stone-800">{weights.length}</div>
+                          <div className="text-[10px] text-stone-500">體重紀錄</div>
+                        </div>
+                        <div className="bg-white rounded-lg p-2 border border-amber-100">
+                          <div className="text-base font-black text-stone-800">{cans.length}</div>
+                          <div className="text-[10px] text-stone-500">主食罐評價</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleDownloadBackup}
+                      className="w-full py-3 bg-stone-900 hover:bg-stone-800 active:scale-[0.99] text-white rounded-xl text-xs font-bold shadow flex items-center justify-center gap-2 transition"
+                    >
+                      <span>📥</span>
+                      <span>一鍵下載備份檔 (.json)</span>
+                    </button>
+
+                    <div className="relative flex py-1 items-center">
+                      <div className="flex-grow border-t border-stone-200"></div>
+                      <span className="flex-shrink mx-2 text-[11px] text-stone-400">或者用文字備份</span>
+                      <div className="flex-grow border-t border-stone-200"></div>
+                    </div>
+
+                    <button
+                      onClick={handleCopyBackupText}
+                      className="w-full py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl text-xs font-bold border border-amber-300 flex items-center justify-center gap-1.5 transition"
+                    >
+                      <span>📋</span>
+                      <span>複製備份代碼 (可貼去 WhatsApp / 備忘錄)</span>
+                    </button>
+                  </div>
+                )}
+
+                {backupTab === 'import' && (
+                  <div className="space-y-3">
+                    <div className="border-2 border-dashed border-stone-300 hover:border-amber-400 rounded-xl p-4 text-center bg-stone-50/60 transition">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".json,application/json"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <div className="text-2xl mb-1">📂</div>
+                      <p className="text-xs font-bold text-stone-700">揀選之前下載嘅 .json 備份檔</p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="mt-2 px-4 py-1.5 bg-stone-800 text-white rounded-full text-xs font-bold hover:bg-stone-700"
+                      >
+                        選擇檔案上傳
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                        或者直接貼上備份代碼：
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={importJsonText}
+                        onChange={(e) => {
+                          setImportJsonText(e.target.value);
+                          validateAndPreviewImport(e.target.value);
+                        }}
+                        placeholder='貼上 {"app":"CatDiary", ...} 備份文字'
+                        className="w-full border border-stone-300 rounded-xl p-2.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+
+                    {importError && (
+                      <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-2.5 text-xs font-medium">
+                        ⚠️ {importError}
+                      </div>
+                    )}
+
+                    {importPreview && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-2">
+                        <div className="text-xs font-bold text-emerald-900 flex items-center justify-between">
+                          <span>✅ 備份檔驗證成功！</span>
+                          <span className="text-[11px] font-normal text-emerald-700">備份日期：{importPreview.exportedAt}</span>
+                        </div>
+                        <div className="text-[11px] text-emerald-800 space-y-0.5">
+                          <div>🐱 主子名稱：<b>{importPreview.catNames}</b></div>
+                          <div>📋 包含：<b>{importPreview.logsCount}</b> 筆生活紀錄、<b>{importPreview.weightsCount}</b> 筆體重、<b>{importPreview.cansCount}</b> 款主食罐</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={confirmRestoreBackup}
+                          className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition"
+                        >
+                          確認覆蓋並還原資料
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {backupTab === 'reset' && (
+                  <div className="space-y-3">
+                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5">
+                      <h4 className="text-xs font-bold text-stone-800 mb-1">✨ 準備好正式記錄自己嘅貓貓？</h4>
+                      <p className="text-[11px] text-stone-600 leading-relaxed mb-3">
+                        你可以一鍵清空目前入面嘅預設示範記錄（保留你設定好嘅兩隻貓貓名字、性別同生日），由零開始記錄！
+                      </p>
+                      {!confirmResetStep ? (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmResetStep(true)}
+                          className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition"
+                        >
+                          🗑️ 清空所有紀錄（由零開始）
+                        </button>
+                      ) : (
+                        <div className="space-y-2 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                          <div className="text-xs font-bold text-rose-800 text-center">
+                            確定要清空所有生活、體重及罐罐紀錄嗎？
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setConfirmResetStep(false)}
+                              className="py-2 bg-white border border-stone-300 text-stone-700 rounded-lg text-xs font-bold"
+                            >
+                              取消
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleClearAllRecords}
+                              className="py-2 bg-rose-600 text-white rounded-lg text-xs font-bold"
+                            >
+                              確定清空
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-stone-700">載入預設示範資料</div>
+                        <div className="text-[10px] text-stone-500">想睇返範例效果可以隨時還原</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRestoreDemoData}
+                        className="px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-800 rounded-lg text-xs font-bold"
+                      >
+                        載入範例
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function DashboardView({
+      cats,
+      logs,
+      weights,
+      selectedCatFilter,
+      searchQuery,
+      onQuickCheckIn,
+      onMarkHealed,
+      onGoToTab,
+      onEditCat
+    }) {
+      const activeInjuries = useMemo(() => {
+        return logs.filter(l => {
+          if (l.category !== 'injury' || l.injuryStatus !== 'recovering') return false;
+          if (selectedCatFilter !== 'all' && l.catId !== 'both' && l.catId !== selectedCatFilter) return false;
+          return true;
+        });
+      }, [logs, selectedCatFilter]);
+
+      const lastLitterWash = useMemo(() => {
+        const washLogs = logs
+          .filter(l => l.category === 'litter' && (l.subType === '洗貓砂盆' || l.subType === '換全新貓砂'))
+          .sort((a, b) => b.date.localeCompare(a.date));
+        return washLogs[0] || null;
+      }, [logs]);
+
+      const litterDays = lastLitterWash ? calcDaysBetween(lastLitterWash.date) : null;
+
+      const getLastCareTask = (catId, subTypeKeyword) => {
+        const found = logs
+          .filter(l => (l.catId === catId || l.catId === 'both') && l.subType && l.subType.includes(subTypeKeyword))
+          .sort((a, b) => b.date.localeCompare(a.date));
+        return found[0] || null;
+      };
+
+      const getLatestWeight = (catId) => {
+        const list = weights
+          .filter(w => w.catId === catId)
+          .sort((a, b) => b.date.localeCompare(a.date));
+        return list[0] || null;
+      };
+
+      const catIdsToShow = selectedCatFilter === 'all' ? ['cat1', 'cat2'] : [selectedCatFilter];
+
+      const recentLogs = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        return logs
+          .filter(l => {
+            if (selectedCatFilter !== 'all' && l.catId !== 'both' && l.catId !== selectedCatFilter) return false;
+            if (!q) return true;
+            return (
+              (l.title && l.title.toLowerCase().includes(q)) ||
+              (l.subType && l.subType.toLowerCase().includes(q)) ||
+              (l.note && l.note.toLowerCase().includes(q)) ||
+              (l.injuryArea && l.injuryArea.toLowerCase().includes(q))
+            );
+          })
+          .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
+          .slice(0, 6);
+      }, [logs, selectedCatFilter, searchQuery]);
+
+      return (
+        <div className="space-y-4">
+          {activeInjuries.length > 0 && (
+            <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-3.5 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-rose-800 font-extrabold text-sm">
+                  <span>🩹</span>
+                  <span>跟進中傷口 / 康復護理 ({activeInjuries.length})</span>
+                </div>
+                <span className="text-[11px] bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded-full font-bold">
+                  重點關注
+                </span>
+              </div>
+              <div className="space-y-2">
+                {activeInjuries.map(item => {
+                  const catName = item.catId === 'both' ? '兩隻貓貓' : cats[item.catId]?.name;
+                  return (
+                    <div key={item.id} className="bg-white rounded-xl p-3 border border-rose-200 flex flex-col gap-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="inline-block text-[11px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-md mr-1.5">
+                            {catName}
+                          </span>
+                          {item.injuryArea && (
+                            <span className="inline-block text-[11px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md mr-1.5">
+                              部位：{item.injuryArea}
+                            </span>
+                          )}
+                          <span className="text-xs font-bold text-stone-800">{item.title}</span>
+                        </div>
+                        <span className="text-[11px] text-stone-400 shrink-0">{item.date}</span>
+                      </div>
+                      {item.note && <p className="text-xs text-stone-600 leading-relaxed">{item.note}</p>}
+                      <div className="flex items-center justify-between pt-1 border-t border-rose-100 mt-1">
+                        <button
+                          onClick={() => onQuickCheckIn(item.catId, 'injury', '傷口清潔與護理', `${item.injuryArea || '傷口'}消毒護理`)}
+                          className="text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition"
+                        >
+                          ＋ 今日已洗傷口/消毒
+                        </button>
+                        <button
+                          onClick={() => onMarkHealed(item.id)}
+                          className="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition"
+                        >
+                          ✨ 標記完全康復
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl ${
+                  litterDays !== null && litterDays >= 14 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  🚽
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-extrabold text-stone-800">貓砂盆大清洗倒數</h2>
+                    {litterDays !== null && litterDays >= 14 && (
+                      <span className="text-[10px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">
+                        建議清洗
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    {lastLitterWash ? (
+                      <>
+                        上次清洗：<span className="font-bold text-stone-700">{lastLitterWash.date}</span>（距今{' '}
+                        <span className={`font-extrabold ${litterDays >= 14 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {litterDays} 日
+                        </span>
+                        ）
+                      </>
+                    ) : (
+                      '尚未有洗貓砂盆記錄'
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <button
+                  onClick={() => onQuickCheckIn('both', 'litter', '洗貓砂盆', '洗貓砂盆 + 換新砂')}
+                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm transition"
+                >
+                  今日洗咗 ✓
+                </button>
+                <button
+                  onClick={() => onQuickCheckIn('both', 'litter', '日常鏟屎觀察', '鏟屎 (大小便正常)')}
+                  className="bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 text-[11px] font-bold px-3 py-1 rounded-xl transition"
+                >
+                  鏟屎打卡 ✓
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {catIdsToShow.map(catId => {
+              const cat = cats[catId];
+              const theme = COLOR_THEMES[cat.color] || COLOR_THEMES.slate;
+              const genderObj = GENDER_MAP[cat.gender || 'male'];
+              const ageText = calcCatAge(cat.birthday);
+              const latestWeight = getLatestWeight(catId);
+
+              const careItems = [
+                { key: '剪指甲', icon: '✂️', label: '剪指甲', warnDays: 14, defaultTitle: '剪手腳指甲' },
+                { key: '洗耳仔', icon: '👂', label: '洗耳仔', warnDays: 14, defaultTitle: '滴洗耳水清潔耳仔' },
+                { key: '剃腳毛', icon: '🐾', label: '剃腳毛', warnDays: 21, defaultTitle: '剃腳底毛防滑' },
+                { key: 'Revolution', icon: '💧', label: '滴頸杜蟲', warnDays: 30, category: 'meds', subType: '外寄生蟲 (Revolution)', defaultTitle: '滴 Revolution 杜蟲' }
+              ];
+
+              return (
+                <div key={catId} className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                  <div className={`${theme.bgCard} px-4 py-3 border-b ${theme.border} flex items-center justify-between gap-2`}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-2xl shrink-0">{cat.avatar}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className={`text-sm font-extrabold ${theme.textMain}`}>{cat.name}</h3>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${genderObj.badge}`}>
+                            {genderObj.label}
+                          </span>
+                          <span className="text-[10px] font-bold bg-white/80 text-stone-700 px-2 py-0.5 rounded-full border border-stone-200/80">
+                            🎂 {ageText}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => onEditCat(catId, e)}
+                            className="text-[10px] text-stone-500 hover:text-stone-800 underline ml-0.5"
+                          >
+                            編輯資料
+                          </button>
+                        </div>
+                        <div className="text-[11px] text-stone-600 mt-0.5 flex items-center gap-2 flex-wrap">
+                          {cat.birthday && <span>出生日期：{cat.birthday}</span>}
+                          {cat.note && <span>· {cat.note}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => onGoToTab('weights')}
+                      className="bg-white/90 hover:bg-white px-2.5 py-1.5 rounded-xl border border-stone-200/80 text-right shadow-sm transition shrink-0"
+                    >
+                      <div className="text-[10px] text-stone-500 font-medium">最新體重 ⚖️</div>
+                      <div className="text-xs font-extrabold text-stone-800">
+                        {latestWeight ? `${Number(latestWeight.weight).toFixed(2)} kg` : '未記錄'}
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="p-3 grid grid-cols-2 gap-2.5">
+                    {careItems.map(task => {
+                      const lastLog = getLastCareTask(catId, task.key);
+                      const days = lastLog ? calcDaysBetween(lastLog.date) : null;
+                      const isOverdue = days !== null && days >= task.warnDays;
+
+                      return (
+                        <div
+                          key={task.key}
+                          className={`rounded-xl p-2.5 border flex flex-col justify-between ${
+                            isOverdue ? 'bg-amber-50/70 border-amber-300' : 'bg-stone-50/70 border-stone-200/80'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-base">{task.icon}</span>
+                              <span className="text-xs font-bold text-stone-800">{task.label}</span>
+                            </div>
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                days === null
+                                  ? 'bg-stone-200 text-stone-600'
+                                  : isOverdue
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {days === null ? '未有紀錄' : `${days} 日前`}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-[10px] text-stone-400">
+                              {lastLog ? lastLog.date : '建議定期護理'}
+                            </span>
+                            <button
+                              onClick={() =>
+                                onQuickCheckIn(
+                                  catId,
+                                  task.category || 'grooming',
+                                  task.subType || task.label,
+                                  task.defaultTitle
+                                )
+                              }
+                              className="text-[11px] font-bold bg-white hover:bg-amber-50 text-stone-700 hover:text-amber-800 px-2 py-1 rounded-lg border border-stone-200 shadow-sm active:scale-95 transition"
+                            >
+                              今日做咗 ✓
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-3 pb-3 pt-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    <span className="text-[10px] font-bold text-stone-400 shrink-0">快捷打卡：</span>
+                    <button
+                      onClick={() => onQuickCheckIn(catId, 'food', '肉泥獎勵', '餵肉泥獎勵')}
+                      className="text-[11px] font-medium bg-orange-50 hover:bg-orange-100 text-orange-800 px-2.5 py-1 rounded-full border border-orange-200 shrink-0 transition"
+                    >
+                      🍡 餵肉泥
+                    </button>
+                    <button
+                      onClick={() => onQuickCheckIn(catId, 'meds', '保健品 (牛初乳/益生菌)', '食牛初乳/保健品')}
+                      className="text-[11px] font-medium bg-purple-50 hover:bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full border border-purple-200 shrink-0 transition"
+                    >
+                      🥛 食牛初乳
+                    </button>
+                    <button
+                      onClick={() => onQuickCheckIn(catId, 'meds', '內寄生蟲 (Milbemax)', '食 Milbemax 杜蟲藥')}
+                      className="text-[11px] font-medium bg-sky-50 hover:bg-sky-100 text-sky-800 px-2.5 py-1 rounded-full border border-sky-200 shrink-0 transition"
+                    >
+                      💊 食杜蟲藥
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-extrabold text-stone-800 flex items-center gap-1.5">
+                <span>🕒</span> 最近生活與護理紀錄
+              </h3>
+              <button
+                onClick={() => onGoToTab('timeline')}
+                className="text-xs font-bold text-amber-700 hover:underline"
+              >
+                查看全部 ({logs.length}) →
+              </button>
+            </div>
+            {recentLogs.length === 0 ? (
+              <p className="text-xs text-stone-400 text-center py-6">暫時未有符合條件嘅記錄</p>
+            ) : (
+              <div className="space-y-2">
+                {recentLogs.map(log => {
+                  const catConfig = CATEGORY_CONFIG[log.category] || CATEGORY_CONFIG.food;
+                  const targetName = log.catId === 'both' ? '兩隻一齊' : cats[log.catId]?.name;
+                  return (
+                    <div
+                      key={log.id}
+                      className="p-2.5 rounded-xl bg-stone-50/80 border border-stone-200/70 flex items-start justify-between gap-2"
+                    >
+                      <div className="flex items-start gap-2 min-w-0">
+                        <span className="text-lg shrink-0 mt-0.5">{catConfig.icon}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-bold bg-stone-200 text-stone-700 px-1.5 py-0.5 rounded">
+                              {targetName}
+                            </span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${catConfig.badgeClass}`}>
+                              {log.subType}
+                            </span>
+                            <span className="text-xs font-bold text-stone-800 truncate">{log.title}</span>
+                          </div>
+                          {log.note && <p className="text-[11px] text-stone-500 mt-1 line-clamp-2">{log.note}</p>}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-stone-400 shrink-0">{log.date.slice(5)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function WeightsView({ cats, weights, setWeights, selectedCatFilter, showToast }) {
+      const [catId, setCatId] = useState(selectedCatFilter === 'cat2' ? 'cat2' : 'cat1');
+      const [date, setDate] = useState(getTodayStr());
+      const [weightVal, setWeightVal] = useState('');
+      const [bcs, setBcs] = useState('normal');
+      const [method, setMethod] = useState('hold');
+      const [note, setNote] = useState('');
+
+      const [showCalc, setShowCalc] = useState(false);
+      const [holdTotal, setHoldTotal] = useState('');
+      const [humanOnly, setHumanOnly] = useState('');
+
+      useEffect(() => {
+        if (selectedCatFilter === 'cat1' || selectedCatFilter === 'cat2') {
+          setCatId(selectedCatFilter);
+        }
+      }, [selectedCatFilter]);
+
+      useEffect(() => {
+        const t = parseFloat(holdTotal);
+        const h = parseFloat(humanOnly);
+        if (!isNaN(t) && !isNaN(h) && t > h) {
+          setWeightVal((t - h).toFixed(2));
+        }
+      }, [holdTotal, humanOnly]);
+
+      const handleAddWeight = (e) => {
+        e.preventDefault();
+        const num = parseFloat(weightVal);
+        if (isNaN(num) || num <= 0 || num > 25) {
+          showToast('⚠️ 請輸入有效嘅貓貓體重 (kg)');
+          return;
+        }
+        const newEntry = {
+          id: 'w-' + Date.now(),
+          catId,
+          date,
+          weight: Number(num.toFixed(2)),
+          bcs,
+          method,
+          note: note.trim()
+        };
+        setWeights(prev => [...prev, newEntry]);
+        setWeightVal('');
+        setNote('');
+        setHoldTotal('');
+        setHumanOnly('');
+        setShowCalc(false);
+        showToast(`⚖️ 已記錄 ${cats[catId]?.name} 體重：${num.toFixed(2)} kg`);
+      };
+
+      const deleteWeight = (id) => {
+        setWeights(prev => prev.filter(w => w.id !== id));
+        showToast('🗑️ 已刪除體重紀錄');
+      };
+
+      const cat1Series = useMemo(
+        () => weights.filter(w => w.catId === 'cat1').sort((a, b) => a.date.localeCompare(b.date)),
+        [weights]
+      );
+      const cat2Series = useMemo(
+        () => weights.filter(w => w.catId === 'cat2').sort((a, b) => a.date.localeCompare(b.date)),
+        [weights]
+      );
+
+      const getWeightStats = (series) => {
+        if (series.length === 0) return { latest: null, diff: null, min: null, max: null };
+        const latest = series[series.length - 1];
+        const prev = series.length >= 2 ? series[series.length - 2] : null;
+        const diff = prev ? Number((latest.weight - prev.weight).toFixed(2)) : null;
+        const vals = series.map(s => s.weight);
+        return {
+          latest,
+          diff,
+          min: Math.min(...vals),
+          max: Math.max(...vals)
+        };
+      };
+
+      const stats1 = getWeightStats(cat1Series);
+      const stats2 = getWeightStats(cat2Series);
+
+      return (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { id: 'cat1', stats: stats1 },
+              { id: 'cat2', stats: stats2 }
+            ].map(({ id, stats }) => {
+              const cat = cats[id];
+              const theme = COLOR_THEMES[cat.color] || COLOR_THEMES.slate;
+              return (
+                <div key={id} className={`rounded-2xl p-3.5 border ${theme.bgCard} ${theme.border} shadow-sm`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-stone-700 flex items-center gap-1">
+                      <span>{cat.avatar}</span> {cat.name}
+                    </span>
+                    {stats.diff !== null && (
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                          stats.diff > 0
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : stats.diff < 0
+                            ? 'bg-amber-100 text-amber-900'
+                            : 'bg-stone-200 text-stone-700'
+                        }`}
+                      >
+                        {stats.diff > 0 ? `+${stats.diff} kg` : stats.diff === 0 ? '持平' : `${stats.diff} kg`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-2xl font-black text-stone-900">
+                      {stats.latest ? stats.latest.weight.toFixed(2) : '--'}
+                    </span>
+                    <span className="text-xs font-bold text-stone-600">kg</span>
+                  </div>
+                  <div className="mt-1 text-[10px] text-stone-500 flex justify-between">
+                    <span>{stats.latest ? `更新於 ${stats.latest.date}` : '未有數據'}</span>
+                    {stats.min !== null && (
+                      <span>
+                        範圍 {stats.min.toFixed(1)}~{stats.max.toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-extrabold text-stone-800 flex items-center gap-1.5">
+                <span>📈</span> 體重變化趨勢圖
+              </h3>
+              <div className="flex items-center gap-3 text-xs font-bold">
+                <span className="flex items-center gap-1 text-slate-700">
+                  <span className="w-2.5 h-2.5 rounded-full inline-block bg-slate-600"></span>
+                  {cats.cat1.name}
+                </span>
+                <span className="flex items-center gap-1 text-amber-700">
+                  <span className="w-2.5 h-2.5 rounded-full inline-block bg-amber-500"></span>
+                  {cats.cat2.name}
+                </span>
+              </div>
+            </div>
+            <WeightLineChart
+              cat1Series={selectedCatFilter === 'cat2' ? [] : cat1Series}
+              cat2Series={selectedCatFilter === 'cat1' ? [] : cat2Series}
+              cats={cats}
+            />
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-extrabold text-stone-800">➕ 記錄新體重</h3>
+              <button
+                type="button"
+                onClick={() => setShowCalc(!showCalc)}
+                className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-xl transition"
+              >
+                🧮 {showCalc ? '收起抱貓計算機' : '抱貓上磅相減計算機'}
+              </button>
+            </div>
+
+            {showCalc && (
+              <div className="mb-3 p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                <div className="text-xs font-bold text-amber-900">
+                  💡 屋企冇寵物磅？先抱住貓貓一齊上磅，再減去自己淨重：
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-600 mb-0.5">人＋貓總重 (kg)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={holdTotal}
+                      onChange={e => setHoldTotal(e.target.value)}
+                      placeholder="例如 58.45"
+                      className="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-600 mb-0.5">自己淨重 (kg)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={humanOnly}
+                      onChange={e => setHumanOnly(e.target.value)}
+                      placeholder="例如 54.20"
+                      className="w-full border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleAddWeight} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {['cat1', 'cat2'].map(id => (
+                  <button
+                    type="button"
+                    key={id}
+                    onClick={() => setCatId(id)}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                      catId === id
+                        ? 'bg-stone-800 text-white border-stone-800'
+                        : 'bg-stone-50 text-stone-600 border-stone-200'
+                    }`}
+                  >
+                    <span>{cats[id].avatar}</span>
+                    <span>{cats[id].name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1">貓貓體重 (kg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={weightVal}
+                    onChange={e => setWeightVal(e.target.value)}
+                    placeholder="例如 4.25"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1">量度日期</label>
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'thin', label: '偏瘦需增重' },
+                  { id: 'normal', label: '理想標準' },
+                  { id: 'chubby', label: '肚仔圓潤' }
+                ].map(opt => (
+                  <button
+                    type="button"
+                    key={opt.id}
+                    onClick={() => setBcs(opt.id)}
+                    className={`py-1.5 rounded-xl border text-xs font-bold ${
+                      bcs === opt.id
+                        ? 'bg-amber-100 border-amber-400 text-amber-900'
+                        : 'bg-stone-50 border-stone-200 text-stone-600'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="text"
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="備註 (例如：飯後磅、食咗羊奶補身...)"
+                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+
+              <button
+                type="submit"
+                className="w-full bg-amber-500 hover:bg-amber-600 active:scale-99 text-white font-bold py-2.5 rounded-xl text-sm shadow-sm transition"
+              >
+                儲存體重記錄
+              </button>
+            </form>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
+            <h3 className="text-sm font-extrabold text-stone-800 mb-3">📋 歷史體重明細</h3>
+            <div className="space-y-2">
+              {weights
+                .filter(w => selectedCatFilter === 'all' || w.catId === selectedCatFilter)
+                .sort((a, b) => b.date.localeCompare(a.date))
+                .map(item => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 border border-stone-200/80"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{cats[item.catId]?.avatar}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-stone-800">{cats[item.catId]?.name}</span>
+                          <span className="text-sm font-black text-amber-700">{Number(item.weight).toFixed(2)} kg</span>
+                          <span className="text-[10px] text-stone-400">{item.date}</span>
+                        </div>
+                        {item.note && <p className="text-[11px] text-stone-500">{item.note}</p>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteWeight(item.id)}
+                      className="text-stone-400 hover:text-rose-600 text-xs px-2 py-1"
+                      title="刪除"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function WeightLineChart({ cat1Series, cat2Series }) {
+      const allPoints = [...cat1Series, ...cat2Series];
+      if (allPoints.length === 0) {
+        return <div className="text-xs text-stone-400 text-center py-8">暫無體重數據</div>;
+      }
+
+      const allDates = Array.from(new Set(allPoints.map(p => p.date))).sort();
+      const allWeights = allPoints.map(p => p.weight);
+      const minW = Math.max(0, Math.floor((Math.min(...allWeights) - 0.3) * 10) / 10);
+      const maxW = Math.ceil((Math.max(...allWeights) + 0.3) * 10) / 10;
+      const rangeW = Math.max(0.5, maxW - minW);
+
+      const width = 460;
+      const height = 170;
+      const padLeft = 38;
+      const padRight = 20;
+      const padTop = 18;
+      const padBottom = 28;
+      const plotW = width - padLeft - padRight;
+      const plotH = height - padTop - padBottom;
+
+      const getX = (dateStr) => {
+        if (allDates.length === 1) return padLeft + plotW / 2;
+        const idx = allDates.indexOf(dateStr);
+        return padLeft + (idx / (allDates.length - 1)) * plotW;
+      };
+
+      const getY = (val) => {
+        return padTop + plotH - ((val - minW) / rangeW) * plotH;
+      };
+
+      const buildPoints = (series) => series.map(item => `${getX(item.date)},${getY(item.weight)}`).join(' ');
+
+      return (
+        <div className="w-full overflow-x-auto">
+          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-visible">
+            {[0, 0.5, 1].map((ratio, idx) => {
+              const y = padTop + ratio * plotH;
+              const val = (maxW - ratio * rangeW).toFixed(1);
+              return (
+                <g key={idx}>
+                  <line x1={padLeft} y1={y} x2={width - padRight} y2={y} stroke="#e7e5e4" strokeDasharray="3 3" />
+                  <text x={padLeft - 6} y={y + 4} textAnchor="end" fontSize="10" fill="#78716c">
+                    {val}kg
+                  </text>
+                </g>
+              );
+            })}
+
+            {cat1Series.length > 1 && (
+              <polyline
+                fill="none"
+                stroke="#475569"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                points={buildPoints(cat1Series)}
+              />
+            )}
+
+            {cat2Series.length > 1 && (
+              <polyline
+                fill="none"
+                stroke="#d97706"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                points={buildPoints(cat2Series)}
+              />
+            )}
+
+            {cat1Series.map(pt => (
+              <g key={pt.id}>
+                <circle cx={getX(pt.date)} cy={getY(pt.weight)} r="4" fill="#475569" stroke="#fff" strokeWidth="1.5" />
+                <text x={getX(pt.date)} y={getY(pt.weight) - 7} textAnchor="middle" fontSize="9" fontWeight="bold" fill="#334155">
+                  {pt.weight}
+                </text>
+              </g>
+            ))}
+
+            {cat2Series.map(pt => (
+              <g key={pt.id}>
+                <circle cx={getX(pt.date)} cy={getY(pt.weight)} r="4" fill="#d97706" stroke="#fff" strokeWidth="1.5" />
+                <text x={getX(pt.date)} y={getY(pt.weight) - 7} textAnchor="middle" fontSize="9" fontWeight="bold" fill="#b45309">
+                  {pt.weight}
+                </text>
+              </g>
+            ))}
+
+            {allDates.map((d) => (
+              <text key={d} x={getX(d)} y={height - 6} textAnchor="middle" fontSize="9" fill="#78716c">
+                {d.slice(5)}
+              </text>
+            ))}
+          </svg>
+        </div>
+      );
+    }
+
+    function CansView({ cats, cans, setCans, searchQuery, showToast }) {
+      const [filterMode, setFilterMode] = useState('all');
+      const [brand, setBrand] = useState('');
+      const [flavor, setFlavor] = useState('');
+      const [texture, setTexture] = useState('肉醬 (Pâté)');
+      const [cat1Rating, setCat1Rating] = useState('love');
+      const [cat2Rating, setCat2Rating] = useState('good');
+      const [note, setNote] = useState('');
+      const [showForm, setShowForm] = useState(false);
+
+      const handleAddCan = (e) => {
+        e.preventDefault();
+        if (!brand.trim() || !flavor.trim()) return;
+        const newCan = {
+          id: 'can-' + Date.now(),
+          brand: brand.trim(),
+          flavor: flavor.trim(),
+          texture,
+          cat1Rating,
+          cat2Rating,
+          note: note.trim()
+        };
+        setCans(prev => [newCan, ...prev]);
+        setBrand('');
+        setFlavor('');
+        setNote('');
+        setShowForm(false);
+        showToast(`🥫 已加入主食罐：${newCan.brand} - ${newCan.flavor}`);
+      };
+
+      const cycleRating = (canId, catKey) => {
+        const order = ['love', 'good', 'meh', 'hate'];
+        setCans(prev =>
+          prev.map(c => {
+            if (c.id !== canId) return c;
+            const current = c[catKey] || 'good';
+            const next = order[(order.indexOf(current) + 1) % order.length];
+            return { ...c, [catKey]: next };
+          })
+        );
+      };
+
+      const deleteCan = (id) => {
+        setCans(prev => prev.filter(c => c.id !== id));
+        showToast('🗑️ 已刪除該款罐罐');
+      };
+
+      const filteredCans = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        return cans.filter(c => {
+          if (q) {
+            const matchText =
+              c.brand.toLowerCase().includes(q) ||
+              c.flavor.toLowerCase().includes(q) ||
+              (c.note && c.note.toLowerCase().includes(q));
+            if (!matchText) return false;
+          }
+          if (filterMode === 'both_love') {
+            return RATING_MAP[c.cat1Rating]?.score >= 3 && RATING_MAP[c.cat2Rating]?.score >= 3;
+          }
+          if (filterMode === 'cat1_love') {
+            return RATING_MAP[c.cat1Rating]?.score >= 3;
+          }
+          if (filterMode === 'cat2_love') {
+            return RATING_MAP[c.cat2Rating]?.score >= 3;
+          }
+          if (filterMode === 'avoid') {
+            return c.cat1Rating === 'hate' || c.cat2Rating === 'hate';
+          }
+          return true;
+        });
+      }, [cans, filterMode, searchQuery]);
+
+      return (
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-sm font-extrabold text-stone-800 flex items-center gap-1.5">
+                  <span>🥫</span> 主食罐喜好圖鑑 ({cans.length})
+                </h2>
+                <p className="text-[11px] text-stone-500">記低邊隻牌子搶住食、邊隻聞完就走，買罐唔中伏</p>
+              </div>
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm transition"
+              >
+                {showForm ? '收起表單' : '＋ 新增罐罐'}
+              </button>
+            </div>
+
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              {[
+                { id: 'all', label: '全部牌子' },
+                { id: 'both_love', label: '🌟 兩隻都肯食' },
+                { id: 'cat1_love', label: `${cats.cat1.avatar} ${cats.cat1.name}愛食` },
+                { id: 'cat2_love', label: `${cats.cat2.avatar} ${cats.cat2.name}愛食` },
+                { id: 'avoid', label: '⚡ 避雷拒食' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilterMode(tab.id)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 border transition ${
+                    filterMode === tab.id
+                      ? 'bg-stone-800 text-white border-stone-800'
+                      : 'bg-stone-50 text-stone-600 border-stone-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {showForm && (
+            <form onSubmit={handleAddCan} className="bg-white rounded-2xl p-4 border-2 border-amber-300 shadow-sm space-y-3">
+              <h3 className="text-xs font-extrabold text-amber-900">➕ 新增主食罐評價</h3>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-600 mb-1">牌子名稱</label>
+                  <input
+                    type="text"
+                    required
+                    value={brand}
+                    onChange={e => setBrand(e.target.value)}
+                    placeholder="例如：K9 / 汪喵星球 / ZiwiPeak"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-600 mb-1">口味</label>
+                  <input
+                    type="text"
+                    required
+                    value={flavor}
+                    onChange={e => setFlavor(e.target.value)}
+                    placeholder="例如：鮮雞肉 / 鹿肉鱈魚"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-stone-600 mb-1">質地</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {['肉醬 (Pâté)', '慕斯 (Mousse)', '肉絲 (Shredded)', '肉塊湯罐'].map(t => (
+                    <button
+                      type="button"
+                      key={t}
+                      onClick={() => setTexture(t)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                        texture === t ? 'bg-amber-100 border-amber-400 text-amber-900' : 'bg-stone-50 border-stone-200 text-stone-600'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  { key: 'cat1', val: cat1Rating, setter: setCat1Rating },
+                  { key: 'cat2', val: cat2Rating, setter: setCat2Rating }
+                ].map(({ key, val, setter }) => (
+                  <div key={key} className="p-2.5 rounded-xl bg-stone-50 border border-stone-200">
+                    <div className="text-xs font-bold text-stone-700 mb-1.5">
+                      {cats[key].avatar} {cats[key].name} 反應：
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {Object.entries(RATING_MAP).map(([rKey, rObj]) => (
+                        <button
+                          type="button"
+                          key={rKey}
+                          onClick={() => setter(rKey)}
+                          className={`py-1 px-2 rounded-lg text-[11px] font-bold border ${
+                            val === rKey ? `${rObj.bg} ring-2 ring-amber-400` : 'bg-white border-stone-200 text-stone-500'
+                          }`}
+                        >
+                          {rObj.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <input
+                type="text"
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="備註 (例如：要加暖水壓爛、溝牛初乳一流...)"
+                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-xs"
+              />
+
+              <button
+                type="submit"
+                className="w-full bg-stone-800 hover:bg-stone-900 text-white font-bold py-2.5 rounded-xl text-xs"
+              >
+                儲存至罐罐圖鑑
+              </button>
+            </form>
+          )}
+
+          <div className="space-y-2.5">
+            {filteredCans.map(can => {
+              const r1 = RATING_MAP[can.cat1Rating] || RATING_MAP.good;
+              const r2 = RATING_MAP[can.cat2Rating] || RATING_MAP.good;
+              const bothLike = r1.score >= 3 && r2.score >= 3;
+
+              return (
+                <div key={can.id} className="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-extrabold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md">
+                          {can.brand}
+                        </span>
+                        <h4 className="text-sm font-extrabold text-stone-800">{can.flavor}</h4>
+                        <span className="text-[10px] font-medium bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full">
+                          {can.texture}
+                        </span>
+                        {bothLike && (
+                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                            🌟 雙貓認證
+                          </span>
+                        )}
+                      </div>
+                      {can.note && <p className="text-xs text-stone-600 mt-1.5">{can.note}</p>}
+                    </div>
+                    <button
+                      onClick={() => deleteCan(can.id)}
+                      className="text-stone-300 hover:text-rose-500 text-xs px-1"
+                      title="刪除"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-3 pt-2.5 border-t border-stone-100">
+                    <button
+                      type="button"
+                      onClick={() => cycleRating(can.id, 'cat1Rating')}
+                      className={`py-1.5 px-2.5 rounded-xl border text-left flex items-center justify-between transition ${r1.bg}`}
+                      title="撳一下切換評價"
+                    >
+                      <span className="text-xs font-bold truncate">
+                        {cats.cat1.avatar} {cats.cat1.name}
+                      </span>
+                      <span className="text-xs font-extrabold shrink-0">{r1.label}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => cycleRating(can.id, 'cat2Rating')}
+                      className={`py-1.5 px-2.5 rounded-xl border text-left flex items-center justify-between transition ${r2.bg}`}
+                      title="撳一下切換評價"
+                    >
+                      <span className="text-xs font-bold truncate">
+                        {cats.cat2.avatar} {cats.cat2.name}
+                      </span>
+                      <span className="text-xs font-extrabold shrink-0">{r2.label}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function TimelineView({ cats, logs, selectedCatFilter, searchQuery, onDeleteLog, onMarkHealed, onGoToAdd }) {
+      const [categoryFilter, setCategoryFilter] = useState('all');
+
+      const filteredLogs = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        return logs
+          .filter(l => {
+            if (selectedCatFilter !== 'all' && l.catId !== 'both' && l.catId !== selectedCatFilter) return false;
+            if (categoryFilter !== 'all' && l.category !== categoryFilter) return false;
+            if (!q) return true;
+            return (
+              (l.title && l.title.toLowerCase().includes(q)) ||
+              (l.subType && l.subType.toLowerCase().includes(q)) ||
+              (l.note && l.note.toLowerCase().includes(q)) ||
+              (l.injuryArea && l.injuryArea.toLowerCase().includes(q))
+            );
+          })
+          .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+      }, [logs, selectedCatFilter, categoryFilter, searchQuery]);
+
+      return (
+        <div className="space-y-3">
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            <button
+              onClick={() => setCategoryFilter('all')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 border ${
+                categoryFilter === 'all' ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-600 border-stone-200'
+              }`}
+            >
+              全部 ({logs.length})
+            </button>
+            {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
+              <button
+                key={key}
+                onClick={() => setCategoryFilter(key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 border flex items-center gap-1 ${
+                  categoryFilter === key ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-600 border-stone-200'
+                }`}
+              >
+                <span>{cfg.icon}</span>
+                <span>{cfg.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {filteredLogs.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center border border-stone-200">
+              <p className="text-sm font-bold text-stone-600 mb-2">暫時未有相關記錄</p>
+              <button
+                onClick={onGoToAdd}
+                className="bg-amber-500 text-white text-xs font-bold px-4 py-2 rounded-full"
+              >
+                ＋ 立即新增第一筆記錄
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {filteredLogs.map(log => {
+                const cfg = CATEGORY_CONFIG[log.category] || CATEGORY_CONFIG.food;
+                const catLabel =
+                  log.catId === 'both'
+                    ? '🏠 兩隻一齊'
+                    : `${cats[log.catId]?.avatar || '🐱'} ${cats[log.catId]?.name}`;
+
+                return (
+                  <div key={log.id} className="bg-white rounded-2xl p-3.5 border border-stone-200 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-stone-100 flex items-center justify-center text-lg shrink-0">
+                          {cfg.icon}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[11px] font-bold bg-stone-100 text-stone-700 px-2 py-0.5 rounded-md">
+                              {catLabel}
+                            </span>
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${cfg.badgeClass}`}>
+                              {log.subType}
+                            </span>
+                            {log.category === 'injury' && (
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  log.injuryStatus === 'healed'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-rose-100 text-rose-800'
+                                }`}
+                              >
+                                {log.injuryStatus === 'healed' ? '✨ 已康復' : '🩹 護理中'}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-extrabold text-stone-800 mt-1">{log.title}</h4>
+                          {log.injuryArea && (
+                            <div className="text-xs font-bold text-rose-700 mt-0.5">傷口位置：{log.injuryArea}</div>
+                          )}
+                          {log.note && <p className="text-xs text-stone-600 mt-1 leading-relaxed">{log.note}</p>}
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                        <span className="text-[11px] font-bold text-stone-500">{log.date}</span>
+                        <span className="text-[10px] text-stone-400">{log.time}</span>
+                        <button
+                          onClick={() => onDeleteLog(log.id)}
+                          className="text-[11px] text-stone-300 hover:text-rose-600 mt-1"
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    </div>
+
+                    {log.category === 'injury' && log.injuryStatus === 'recovering' && (
+                      <div className="mt-2.5 pt-2 border-t border-stone-100 flex justify-end">
+                        <button
+                          onClick={() => onMarkHealed(log.id)}
+                          className="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg border border-emerald-200"
+                        >
+                          ✨ 標記傷口已康復
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function AddLogView({ cats, selectedCatFilter, onAddLog }) {
+      const [catId, setCatId] = useState(selectedCatFilter === 'all' ? 'cat1' : selectedCatFilter);
+      const [category, setCategory] = useState('grooming');
+      const [subType, setSubType] = useState(CATEGORY_CONFIG.grooming.subTypes[0]);
+      const [title, setTitle] = useState('');
+      const [date, setDate] = useState(getTodayStr());
+      const [time, setTime] = useState(getNowTimeStr());
+      const [injuryArea, setInjuryArea] = useState('');
+      const [injuryStatus, setInjuryStatus] = useState('recovering');
+      const [note, setNote] = useState('');
+
+      const handleCategoryChange = (newCat) => {
+        setCategory(newCat);
+        const defaultSub = CATEGORY_CONFIG[newCat].subTypes[0];
+        setSubType(defaultSub);
+        if (newCat === 'litter') {
+          setCatId('both');
+        }
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const finalTitle = title.trim() || subType;
+        const newLog = {
+          id: 'log-' + Date.now(),
+          catId,
+          category,
+          subType,
+          title: finalTitle,
+          date,
+          time,
+          ...(category === 'injury' ? { injuryArea: injuryArea.trim(), injuryStatus } : {}),
+          note: note.trim()
+        };
+        onAddLog(newLog);
+      };
+
+      return (
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm space-y-4">
+          <h2 className="text-base font-extrabold text-stone-800 flex items-center gap-2">
+            <span>✍️</span> 新增貓貓生活 / 護理記錄
+          </h2>
+
+          <div>
+            <label className="block text-xs font-bold text-stone-600 mb-1.5">1. 選擇主子</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'cat1', label: cats.cat1.name, icon: cats.cat1.avatar },
+                { id: 'cat2', label: cats.cat2.name, icon: cats.cat2.avatar },
+                { id: 'both', label: '兩隻一齊 / 共用', icon: '🏠' }
+              ].map(opt => (
+                <button
+                  type="button"
+                  key={opt.id}
+                  onClick={() => setCatId(opt.id)}
+                  className={`py-2.5 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    catId === opt.id
+                      ? 'bg-stone-800 text-white border-stone-800 shadow-sm'
+                      : 'bg-stone-50 text-stone-600 border-stone-200'
+                  }`}
+                >
+                  <span>{opt.icon}</span>
+                  <span className="truncate">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-stone-600 mb-1.5">2. 記錄類別</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
+                <button
+                  type="button"
+                  key={key}
+                  onClick={() => handleCategoryChange(key)}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center gap-2 transition ${
+                    category === key
+                      ? 'bg-amber-100 border-amber-400 text-amber-950 ring-2 ring-amber-300'
+                      : 'bg-stone-50 border-stone-200 text-stone-600'
+                  }`}
+                >
+                  <span className="text-base">{cfg.icon}</span>
+                  <span>{cfg.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-stone-600 mb-1.5">3. 細項分類</label>
+            <div className="flex flex-wrap gap-1.5">
+              {CATEGORY_CONFIG[category].subTypes.map(st => (
+                <button
+                  type="button"
+                  key={st}
+                  onClick={() => setSubType(st)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                    subType === st
+                      ? 'bg-stone-800 text-white border-stone-800'
+                      : 'bg-stone-50 text-stone-600 border-stone-200'
+                  }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {category === 'injury' && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-rose-900 mb-1">傷口 / 患處位置</label>
+                <input
+                  type="text"
+                  value={injuryArea}
+                  onChange={e => setInjuryArea(e.target.value)}
+                  placeholder="例如：左後腳、下巴、右耳背..."
+                  className="w-full border border-rose-300 rounded-xl px-3 py-2 text-xs bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-rose-900 mb-1">目前狀態</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInjuryStatus('recovering')}
+                    className={`py-1.5 rounded-xl text-xs font-bold border ${
+                      injuryStatus === 'recovering'
+                        ? 'bg-rose-600 text-white border-rose-600'
+                        : 'bg-white text-stone-600 border-stone-200'
+                    }`}
+                  >
+                    🩹 護理跟進中 (置頂提醒)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInjuryStatus('healed')}
+                    className={`py-1.5 rounded-xl text-xs font-bold border ${
+                      injuryStatus === 'healed'
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white text-stone-600 border-stone-200'
+                    }`}
+                  >
+                    ✨ 已完全康復
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-stone-600 mb-1">標題摘要 (選填)</label>
+              <input
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder={`預設：${subType}`}
+                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-bold text-stone-600 mb-1">日期</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-2.5 py-2 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-stone-600 mb-1">時間</label>
+                <input
+                  type="time"
+                  value={time}
+                  onChange={e => setTime(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-2.5 py-2 text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-stone-600 mb-1">詳細備註</label>
+            <textarea
+              rows={3}
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="記低詳細情況，例如：用生理鹽水洗傷口、獎勵咗一條肉泥、便便形狀正常..."
+              className="w-full border border-stone-300 rounded-xl p-3 text-xs"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-amber-500 hover:bg-amber-600 active:scale-99 text-white font-extrabold py-3 rounded-xl text-sm shadow-md transition"
+          >
+            ✅ 儲存記錄
+          </button>
+        </form>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
